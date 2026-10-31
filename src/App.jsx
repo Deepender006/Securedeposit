@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
@@ -23,17 +22,19 @@ function App() {
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      return (
-        JSON.parse(localStorage.getItem("securedeposit_current_user")) || null
+      const token = localStorage.getItem("securedeposit_token");
+      const user = JSON.parse(
+        localStorage.getItem("securedeposit_current_user") || "null"
       );
+
+      return token && user ? user : null;
     } catch {
       return null;
     }
   });
 
   const getAuthPageFromURL = () => {
-    const path = window.location.pathname;
-    if (path === "/register") return "register";
+    if (window.location.pathname === "/register") return "register";
     return "login";
   };
 
@@ -117,6 +118,7 @@ function App() {
 
     setCurrentUser(safeUser);
     setActivePage("Dashboard");
+    setError("");
     navigate("/dashboard");
   }
 
@@ -137,6 +139,8 @@ function App() {
 
   function handleLogout() {
     localStorage.removeItem("securedeposit_current_user");
+    localStorage.removeItem("securedeposit_token");
+
     setCurrentUser(null);
     setFdrRecords([]);
     setError("");
@@ -172,8 +176,10 @@ function App() {
             setActivePage={setActivePage}
           />
         );
+
       case "Institutions":
         return <Institutions fdrRecords={fdrRecords} />;
+
       case "FDR Management":
         return (
           <FDRManagement
@@ -181,8 +187,10 @@ function App() {
             setFdrRecords={setFdrRecords}
           />
         );
+
       case "Documents":
         return <Documents fdrRecords={fdrRecords} />;
+
       case "Verification":
         return (
           <Verification
@@ -190,8 +198,10 @@ function App() {
             setFdrRecords={setFdrRecords}
           />
         );
+
       case "Maturity Alerts":
         return <MaturityAlerts fdrRecords={fdrRecords} />;
+
       case "Renewal & Release":
         return (
           <RenewalRelease
@@ -199,8 +209,10 @@ function App() {
             setFdrRecords={setFdrRecords}
           />
         );
+
       case "Reports":
         return <Reports fdrRecords={fdrRecords} />;
+
       default:
         return (
           <Dashboard
@@ -237,16 +249,20 @@ function App() {
   return (
     <div className="app-container">
       <Sidebar activePage={activePage} setActivePage={setActivePage} />
+
       <main className="main-content">
         <Header activePage={activePage} />
+
         <div className="user-session-bar">
           <span>
             Logged in as <strong>{currentUser.name}</strong>
           </span>
+
           <button type="button" onClick={handleLogout}>
             Logout
           </button>
         </div>
+
         {renderPage()}
       </main>
     </div>

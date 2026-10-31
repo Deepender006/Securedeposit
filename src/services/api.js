@@ -1,113 +1,86 @@
 const API_BASE_URL = "http://localhost:5000/api";
 
-export async function getFDRRecords() {
-  const response = await fetch(`${API_BASE_URL}/fdr`);
+async function apiRequest(endpoint, options = {}) {
+  const token = localStorage.getItem("securedeposit_token");
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch FDR records");
+  const headers = {
+    ...options.headers,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  if (
+    options.body !== undefined &&
+    !(options.body instanceof FormData)
+  ) {
+    headers["Content-Type"] =
+      headers["Content-Type"] || "application/json";
   }
 
-  return response.json();
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || "API request failed");
+  }
+
+  return data;
+}
+
+export async function getFDRRecords() {
+  return apiRequest("/fdr");
 }
 
 export async function getFDRStats() {
-  const response = await fetch(`${API_BASE_URL}/fdr/stats`);
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch FDR statistics");
-  }
-
-  return response.json();
+  return apiRequest("/fdr/stats");
 }
 
 export async function createFDR(record) {
-  const response = await fetch(`${API_BASE_URL}/fdr`, {
+  return apiRequest("/fdr", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(record)
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to create FDR record");
-  }
-
-  return response.json();
-}
-export async function updateFDR(id, record) {
-  const response = await fetch(`${API_BASE_URL}/fdr/${id}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(record),
   });
+}
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to update FDR record");
-  }
-
-  return response.json();
+export async function updateFDR(id, record) {
+  return apiRequest(`/fdr/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(record),
+  });
 }
 
 export async function deleteFDR(id) {
-  const response = await fetch(`${API_BASE_URL}/fdr/${id}`, {
+  return apiRequest(`/fdr/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to delete FDR record");
-  }
-
-  return response.json();
 }
+
 export async function uploadDocument(fdrId, institution, file) {
   const formData = new FormData();
+
   formData.append("fdrId", fdrId);
   formData.append("institution", institution);
   formData.append("document", file);
 
-  const response = await fetch(`${API_BASE_URL}/documents/upload`, {
+  return apiRequest("/documents/upload", {
     method: "POST",
     body: formData,
   });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to upload document.");
-  }
-
-  return result;
 }
 
 export async function getDocuments(fdrId) {
-  const query = fdrId ? `?fdrId=${encodeURIComponent(fdrId)}` : "";
+  const query = fdrId
+    ? `?fdrId=${encodeURIComponent(fdrId)}`
+    : "";
 
-  const response = await fetch(`${API_BASE_URL}/documents${query}`);
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch documents.");
-  }
-
-  return response.json();
+  return apiRequest(`/documents${query}`);
 }
 
 export async function deleteDocument(id) {
-  const response = await fetch(
-    `${API_BASE_URL}/documents/${encodeURIComponent(id)}`,
-    { method: "DELETE" }
-  );
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to delete document.");
-  }
-
-  return result;
+  return apiRequest(`/documents/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }

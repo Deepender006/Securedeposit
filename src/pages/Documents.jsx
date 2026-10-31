@@ -11,6 +11,7 @@ function Documents({ fdrRecords }) {
   const [uploadedDocuments, setUploadedDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [viewingDocument, setViewingDocument] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -32,6 +33,7 @@ function Documents({ fdrRecords }) {
 
   const handleUpload = async (event) => {
     event.preventDefault();
+
     setMessage("");
     setError("");
 
@@ -46,6 +48,7 @@ function Documents({ fdrRecords }) {
     }
 
     const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg"];
+
     const extension = documentFile.name
       .slice(documentFile.name.lastIndexOf("."))
       .toLowerCase();
@@ -74,15 +77,73 @@ function Documents({ fdrRecords }) {
       );
 
       setMessage("Document uploaded successfully.");
+
       setSelectedFDR("");
       setDocumentFile(null);
 
       event.target.reset();
+
       await loadDocuments();
     } catch (err) {
       setError(err.message || "Document upload failed.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleView = async (documentId) => {
+    setError("");
+    setMessage("");
+
+    const newTab = window.open("about:blank", "_blank");
+
+    if (!newTab) {
+      setError("Please allow pop-ups to view documents.");
+      return;
+    }
+
+    setViewingDocument(documentId);
+
+    try {
+      const token = localStorage.getItem("securedeposit_token");
+
+      if (!token) {
+        throw new Error("Please log in again to view this document.");
+      }
+
+      const response = await fetch(
+        `http://localhost:5000/api/documents/${encodeURIComponent(
+          documentId
+        )}/view`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+
+        throw new Error(
+          data.message || "Unable to open this document."
+        );
+      }
+
+      const blob = await response.blob();
+      const fileUrl = URL.createObjectURL(blob);
+
+      newTab.location.href = fileUrl;
+
+      window.setTimeout(() => {
+        URL.revokeObjectURL(fileUrl);
+      }, 5 * 60 * 1000);
+    } catch (err) {
+      newTab.close();
+
+      setError(err.message || "Failed to view document.");
+    } finally {
+      setViewingDocument("");
     }
   };
 
@@ -100,7 +161,9 @@ function Documents({ fdrRecords }) {
       await deleteDocument(documentId);
 
       setUploadedDocuments((previous) =>
-        previous.filter((document) => document.id !== documentId)
+        previous.filter(
+          (document) => document.id !== documentId
+        )
       );
 
       setMessage("Document deleted successfully.");
@@ -111,16 +174,23 @@ function Documents({ fdrRecords }) {
 
   const formatFileSize = (size) => {
     if (size < 1024) return `${size} bytes`;
-    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+
+    if (size < 1024 * 1024) {
+      return `${(size / 1024).toFixed(1)} KB`;
+    }
+
     return `${(size / (1024 * 1024)).toFixed(2)} MB`;
   };
 
   return (
     <div className="dashboard-content">
+     
       <div className="page-heading">
         <div>
           <h1>Document Management</h1>
-          <p>Manage documents associated with registered FDRs.</p>
+          <p>
+            Manage documents associated with registered FDRs.
+          </p>
         </div>
       </div>
 
@@ -130,9 +200,12 @@ function Documents({ fdrRecords }) {
         <form onSubmit={handleUpload} className="fdr-form">
           <label>
             Select FDR
+
             <select
               value={selectedFDR}
-              onChange={(event) => setSelectedFDR(event.target.value)}
+              onChange={(event) =>
+                setSelectedFDR(event.target.value)
+              }
               required
               disabled={isSubmitting}
             >
@@ -148,13 +221,16 @@ function Documents({ fdrRecords }) {
 
           <label>
             Choose Document
+
             <input
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
               required
               disabled={isSubmitting}
               onChange={(event) =>
-                setDocumentFile(event.target.files?.[0] || null)
+                setDocumentFile(
+                  event.target.files?.[0] || null
+                )
               }
             />
           </label>
@@ -162,9 +238,13 @@ function Documents({ fdrRecords }) {
           <button
             type="submit"
             className="primary-button"
-            disabled={isSubmitting || fdrRecords.length === 0}
+            disabled={
+              isSubmitting || fdrRecords.length === 0
+            }
           >
-            {isSubmitting ? "Uploading..." : "Upload Document"}
+            {isSubmitting
+              ? "Uploading..."
+              : "Upload Document"}
           </button>
         </form>
 
@@ -181,7 +261,8 @@ function Documents({ fdrRecords }) {
         )}
 
         <p className="empty-state">
-          Allowed formats: PDF, PNG, JPG, JPEG. Maximum file size: 5 MB.
+          Allowed formats: PDF, PNG, JPG, JPEG.
+          Maximum file size: 5 MB.
         </p>
       </div>
 
@@ -189,7 +270,11 @@ function Documents({ fdrRecords }) {
         <div className="panel-heading">
           <div>
             <h2>Uploaded Documents</h2>
-            <p>{uploadedDocuments.length} documents stored on the backend</p>
+
+            <p>
+              {uploadedDocuments.length} documents stored on
+              the backend
+            </p>
           </div>
 
           <button
@@ -198,7 +283,7 @@ function Documents({ fdrRecords }) {
             onClick={loadDocuments}
             disabled={loading}
           >
-            Refresh
+            {loading ? "Refreshing..." : "Refresh"}
           </button>
         </div>
 
@@ -218,30 +303,62 @@ function Documents({ fdrRecords }) {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="6">Loading documents...</td>
+                  <td colSpan="6">
+                    Loading documents...
+                  </td>
                 </tr>
               ) : uploadedDocuments.length === 0 ? (
                 <tr>
-                  <td colSpan="6">No documents uploaded yet.</td>
+                  <td colSpan="6">
+                    No documents uploaded yet.
+                  </td>
                 </tr>
               ) : (
                 uploadedDocuments.map((document) => (
                   <tr key={document.id}>
                     <td>{document.fdrId}</td>
+
                     <td>{document.institution}</td>
+
                     <td>{document.fileName}</td>
-                    <td>{formatFileSize(document.fileSize)}</td>
+
                     <td>
-                      {new Date(document.uploadDate).toLocaleDateString("en-IN")}
+                      {formatFileSize(document.fileSize)}
                     </td>
+
                     <td>
-                      <button
-                        type="button"
-                        className="action-button delete-button"
-                        onClick={() => handleDelete(document.id)}
-                      >
-                        Delete
-                      </button>
+                      {new Date(
+                        document.uploadDate
+                      ).toLocaleDateString("en-IN")}
+                    </td>
+
+                    <td>
+                      <div className="fdr-action-buttons">
+                        <button
+                          type="button"
+                          className="action-button edit-button"
+                          onClick={() =>
+                            handleView(document.id)
+                          }
+                          disabled={
+                            viewingDocument === document.id
+                          }
+                        >
+                          {viewingDocument === document.id
+                            ? "Opening..."
+                            : "View"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="action-button delete-button"
+                          onClick={() =>
+                            handleDelete(document.id)
+                          }
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
